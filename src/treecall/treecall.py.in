@@ -9,6 +9,11 @@ import warnings
 import signal
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
+# This allows the dependencies (ie pyvcf and ete2) to properly be imported
+# see here: http://stackoverflow.com/a/15209116/943814
+import site
+site.addsitedir("@PYPATH@")
+
 import sys
 import itertools
 import numpy as np
