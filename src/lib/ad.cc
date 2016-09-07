@@ -22,7 +22,7 @@
 #include <dng/io/ad.h>
 #include <dng/io/utility.h>
 
-#include <dng/detail/ntf8.h>
+#include <dng/detail/varint.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -171,22 +171,142 @@ const AlleleDepths::type_info_t
     {127, 4, "NTGCA", "ntgca", 4, {3,2,1,0}}
 };
 
+const AlleleDepths::type_info_gt_t
+    AlleleDepths::type_info_gt_table[128] = {
+    {0,   1,  {0,3,9,2,8,7,1,6,5,4}},
+    {1,   1,  {4,6,9,5,8,7,1,3,2,0}},
+    {2,   1,  {7,8,9,5,6,4,2,3,1,0}},
+    {3,   1,  {9,8,7,6,5,4,3,2,1,0}},
+    {4,   3,  {0,1,4,3,6,9,2,5,8,7}},
+    {5,   3,  {0,2,7,3,8,9,1,5,6,4}},
+    {6,   3,  {0,3,9,2,8,7,1,6,5,4}},
+    {7,   3,  {4,1,0,6,3,9,5,2,8,7}},
+    {8,   3,  {4,5,7,6,8,9,1,2,3,0}},
+    {9,   3,  {4,6,9,5,8,7,1,3,2,0}},
+    {10,  3,  {7,2,0,8,3,9,5,1,6,4}},
+    {11,  3,  {7,5,4,8,6,9,2,1,3,0}},
+    {12,  3,  {7,8,9,5,6,4,2,3,1,0}},
+    {13,  3,  {9,3,0,8,2,7,6,1,5,4}},
+    {14,  3,  {9,6,4,8,5,7,3,1,2,0}},
+    {15,  3,  {9,8,7,6,5,4,3,2,1,0}},
+    {16,  6,  {0,1,4,2,5,7,3,6,8,9}},
+    {17,  6,  {0,1,4,3,6,9,2,5,8,7}},
+    {18,  6,  {0,2,7,1,5,4,3,8,6,9}},
+    {19,  6,  {0,2,7,3,8,9,1,5,6,4}},
+    {20,  6,  {0,3,9,1,6,4,2,8,5,7}},
+    {21,  6,  {0,3,9,2,8,7,1,6,5,4}},
+    {22,  6,  {4,1,0,5,2,7,6,3,8,9}},
+    {23,  6,  {4,1,0,6,3,9,5,2,8,7}},
+    {24,  6,  {4,5,7,1,2,0,6,8,3,9}},
+    {25,  6,  {4,5,7,6,8,9,1,2,3,0}},
+    {26,  6,  {4,6,9,1,3,0,5,8,2,7}},
+    {27,  6,  {4,6,9,5,8,7,1,3,2,0}},
+    {28,  6,  {7,2,0,5,1,4,8,3,6,9}},
+    {29,  6,  {7,2,0,8,3,9,5,1,6,4}},
+    {30,  6,  {7,5,4,2,1,0,8,6,3,9}},
+    {31,  6,  {7,5,4,8,6,9,2,1,3,0}},
+    {32,  6,  {7,8,9,2,3,0,5,6,1,4}},
+    {33,  6,  {7,8,9,5,6,4,2,3,1,0}},
+    {34,  6,  {9,3,0,6,1,4,8,2,5,7}},
+    {35,  6,  {9,3,0,8,2,7,6,1,5,4}},
+    {36,  6,  {9,6,4,3,1,0,8,5,2,7}},
+    {37,  6,  {9,6,4,8,5,7,3,1,2,0}},
+    {38,  6,  {9,8,7,3,2,0,6,5,1,4}},
+    {39,  6,  {9,8,7,6,5,4,3,2,1,0}},
+    {40,  10, {0,1,4,2,5,7,3,6,8,9}},
+    {41,  10, {0,1,4,3,6,9,2,5,8,7}},
+    {42,  10, {0,2,7,1,5,4,3,8,6,9}},
+    {43,  10, {0,2,7,3,8,9,1,5,6,4}},
+    {44,  10, {0,3,9,1,6,4,2,8,5,7}},
+    {45,  10, {0,3,9,2,8,7,1,6,5,4}},
+    {46,  10, {4,1,0,5,2,7,6,3,8,9}},
+    {47,  10, {4,1,0,6,3,9,5,2,8,7}},
+    {48,  10, {4,5,7,1,2,0,6,8,3,9}},
+    {49,  10, {4,5,7,6,8,9,1,2,3,0}},
+    {50,  10, {4,6,9,1,3,0,5,8,2,7}},
+    {51,  10, {4,6,9,5,8,7,1,3,2,0}},
+    {52,  10, {7,2,0,5,1,4,8,3,6,9}},
+    {53,  10, {7,2,0,8,3,9,5,1,6,4}},
+    {54,  10, {7,5,4,2,1,0,8,6,3,9}},
+    {55,  10, {7,5,4,8,6,9,2,1,3,0}},
+    {56,  10, {7,8,9,2,3,0,5,6,1,4}},
+    {57,  10, {7,8,9,5,6,4,2,3,1,0}},
+    {58,  10, {9,3,0,6,1,4,8,2,5,7}},
+    {59,  10, {9,3,0,8,2,7,6,1,5,4}},
+    {60,  10, {9,6,4,3,1,0,8,5,2,7}},
+    {61,  10, {9,6,4,8,5,7,3,1,2,0}},
+    {62,  10, {9,8,7,3,2,0,6,5,1,4}},
+    {63,  10, {9,8,7,6,5,4,3,2,1,0}},
+    {64,  1,  {0,3,9,2,8,7,1,6,5,4}},
+    {65,  1,  {4,6,9,5,8,7,1,3,2,0}},
+    {66,  1,  {7,8,9,5,6,4,2,3,1,0}},
+    {67,  1,  {9,8,7,6,5,4,3,2,1,0}},
+    {68,  3,  {0,1,4,3,6,9,2,5,8,7}},
+    {69,  3,  {0,2,7,3,8,9,1,5,6,4}},
+    {70,  3,  {0,3,9,2,8,7,1,6,5,4}},
+    {71,  3,  {4,1,0,6,3,9,5,2,8,7}},
+    {72,  3,  {4,5,7,6,8,9,1,2,3,0}},
+    {73,  3,  {4,6,9,5,8,7,1,3,2,0}},
+    {74,  3,  {7,2,0,8,3,9,5,1,6,4}},
+    {75,  3,  {7,5,4,8,6,9,2,1,3,0}},
+    {76,  3,  {7,8,9,5,6,4,2,3,1,0}},
+    {77,  3,  {9,3,0,8,2,7,6,1,5,4}},
+    {78,  3,  {9,6,4,8,5,7,3,1,2,0}},
+    {79,  3,  {9,8,7,6,5,4,3,2,1,0}},
+    {80,  6,  {0,1,4,2,5,7,3,6,8,9}},
+    {81,  6,  {0,1,4,3,6,9,2,5,8,7}},
+    {82,  6,  {0,2,7,1,5,4,3,8,6,9}},
+    {83,  6,  {0,2,7,3,8,9,1,5,6,4}},
+    {84,  6,  {0,3,9,1,6,4,2,8,5,7}},
+    {85,  6,  {0,3,9,2,8,7,1,6,5,4}},
+    {86,  6,  {4,1,0,5,2,7,6,3,8,9}},
+    {87,  6,  {4,1,0,6,3,9,5,2,8,7}},
+    {88,  6,  {4,5,7,1,2,0,6,8,3,9}},
+    {89,  6,  {4,5,7,6,8,9,1,2,3,0}},
+    {90,  6,  {4,6,9,1,3,0,5,8,2,7}},
+    {91,  6,  {4,6,9,5,8,7,1,3,2,0}},
+    {92,  6,  {7,2,0,5,1,4,8,3,6,9}},
+    {93,  6,  {7,2,0,8,3,9,5,1,6,4}},
+    {94,  6,  {7,5,4,2,1,0,8,6,3,9}},
+    {95,  6,  {7,5,4,8,6,9,2,1,3,0}},
+    {96,  6,  {7,8,9,2,3,0,5,6,1,4}},
+    {97,  6,  {7,8,9,5,6,4,2,3,1,0}},
+    {98,  6,  {9,3,0,6,1,4,8,2,5,7}},
+    {99,  6,  {9,3,0,8,2,7,6,1,5,4}},
+    {100, 6,  {9,6,4,3,1,0,8,5,2,7}},
+    {101, 6,  {9,6,4,8,5,7,3,1,2,0}},
+    {102, 6,  {9,8,7,3,2,0,6,5,1,4}},
+    {103, 6,  {9,8,7,6,5,4,3,2,1,0}},
+    {104, 10, {0,1,4,2,5,7,3,6,8,9}},
+    {105, 10, {0,1,4,3,6,9,2,5,8,7}},
+    {106, 10, {0,2,7,1,5,4,3,8,6,9}},
+    {107, 10, {0,2,7,3,8,9,1,5,6,4}},
+    {108, 10, {0,3,9,1,6,4,2,8,5,7}},
+    {109, 10, {0,3,9,2,8,7,1,6,5,4}},
+    {110, 10, {4,1,0,5,2,7,6,3,8,9}},
+    {111, 10, {4,1,0,6,3,9,5,2,8,7}},
+    {112, 10, {4,5,7,1,2,0,6,8,3,9}},
+    {113, 10, {4,5,7,6,8,9,1,2,3,0}},
+    {114, 10, {4,6,9,1,3,0,5,8,2,7}},
+    {115, 10, {4,6,9,5,8,7,1,3,2,0}},
+    {116, 10, {7,2,0,5,1,4,8,3,6,9}},
+    {117, 10, {7,2,0,8,3,9,5,1,6,4}},
+    {118, 10, {7,5,4,2,1,0,8,6,3,9}},
+    {119, 10, {7,5,4,8,6,9,2,1,3,0}},
+    {120, 10, {7,8,9,2,3,0,5,6,1,4}},
+    {121, 10, {7,8,9,5,6,4,2,3,1,0}},
+    {122, 10, {9,3,0,6,1,4,8,2,5,7}},
+    {123, 10, {9,3,0,8,2,7,6,1,5,4}},
+    {124, 10, {9,6,4,3,1,0,8,5,2,7}},
+    {125, 10, {9,6,4,8,5,7,3,1,2,0}},
+    {126, 10, {9,8,7,3,2,0,6,5,1,4}},
+    {127, 10, {9,8,7,6,5,4,3,2,1,0}}
+};
+
 namespace dng { namespace pileup {
 AlleleDepths::match_labels_t AlleleDepths::MatchLabel;
 AlleleDepths::match_indexes_t AlleleDepths::MatchIndexes;
 }}
-
-int ntf8_put32(int32_t n, char *out, size_t count);
-int ntf8_put64(int64_t n, char *out, size_t count);
-int ntf8_get32(const char *in, size_t count, int32_t *r);
-int ntf8_get64(const char *in, size_t count, int64_t *r);
-
-template<typename CharT, typename Traits = std::char_traits<CharT>>
-int ntf8_get32(std::basic_streambuf<CharT,Traits> *in, int32_t *r);
-
-template<typename CharT, typename Traits = std::char_traits<CharT>>
-int ntf8_get64(std::basic_streambuf<CharT,Traits> *in, int64_t *r);
-
 
 void dng::io::Ad::Clear() {
     contigs_.clear();
@@ -515,7 +635,7 @@ int dng::io::Ad::WriteTad(const AlleleDepths& line) {
     return 1;
 }
 
-const char ad_header[9] = "\255AD\001\r\n\032\n";
+const char ad_header[9] = "\255AD\002\r\n\032\n";
 
 int dng::io::Ad::ReadHeaderAd() {
     using namespace std;
@@ -580,28 +700,45 @@ int dng::io::Ad::WriteHeaderAd() {
 }
 
 int dng::io::Ad::ReadAd(AlleleDepths *pline) {
-    namespace ntf8 = dng::detail::ntf8;
+    namespace varint = dng::detail::varint;
 
-    int64_t u;
-    if(ntf8::get64(stream_.rdbuf(),&u) == 0) {
+    // read location and type
+    auto result = varint::get(stream_.rdbuf());
+    if(!result.second) {
         return 0;
     }
-    // read location ant type
-    location_t loc = (u >> 7);
-    int8_t rec_type = u & 0x7F;
+    location_t loc = (result.first >> 7);
+    int8_t rec_type = result.first & 0x7F;
     if(utility::location_to_contig(loc) > 0) {
         // absolute positioning
         loc -= (1LL << 32);
+        // read reference information into buffer
+        for(size_t i=0;i<num_libraries_;++i) {
+            result = varint::get(stream_.rdbuf());
+            if(!result.second) {
+                return 0;
+            }          
+            last_data_[i] = result.first;
+        }
     } else {
+        // relative positioning
         loc += last_location_ + 1;
+        // read reference information into buffer
+        for(size_t i=0;i<num_libraries_;++i) {
+            auto zzresult = varint::get_zig_zag(stream_.rdbuf());
+            if(!zzresult.second) {
+                return 0;
+            }          
+            last_data_[i] += zzresult.first;
+        }
     }
     last_location_ = loc;
 
     if(pline == nullptr) {
         int width = AlleleDepths::type_info_table[rec_type].width;
-        for(size_t i=0; i < num_libraries_*width; ++i) {
-            int32_t d;
-            if(ntf8::get32(stream_.rdbuf(),&d) == 0) {
+        for(size_t i=num_libraries_; i < num_libraries_*width; ++i) {
+            result = varint::get(stream_.rdbuf());
+            if(!result.second) {
                 return 0;
             }
         }
@@ -609,10 +746,18 @@ int dng::io::Ad::ReadAd(AlleleDepths *pline) {
     }
     pline->location(loc);
     pline->resize(rec_type,num_libraries_);
-    for(size_t i=0; i<pline->data_size(); ++i) {
-        if(ntf8::get32(stream_.rdbuf(), &pline->data()[i]) == 0) {
+
+    // Reference depths
+    for(size_t i=0;i<num_libraries_;++i) {
+        pline->data()[i] = last_data_[i];
+    }
+    // Alternate depths
+    for(size_t i=num_libraries_; i<pline->data_size(); ++i) {
+        result = varint::get(stream_.rdbuf());
+        if(!result.second) {
             return 0;
         }
+        pline->data()[i] = result.first;
     }
     return 1;
 }
@@ -647,311 +792,92 @@ int dng::io::Ad::WriteAd(const AlleleDepths& line) {
         location_t diff = loc - last_location_ - 1;
         last_location_ = loc;
         loc = diff;
+        assert(location_to_contig(loc) == 0);
     }
     // set counter
     counter_ += 1;
 
-    // Fetch color and check if it is positive
+    // Fetch color and check if it is non-negative
     int8_t color = line.color();
     assert(color >= 0);
-    int64_t u = (loc << 7) | color; 
-    char buffer[9];
+    uint64_t u = (loc << 7) | color;
     // write out contig, position, and location
-    int sz = ntf8_put64(u, buffer,sizeof(buffer));
-    stream_.write(buffer, sz);
+    namespace varint = dng::detail::varint;
+    if(!varint::put(stream_.rdbuf(), u)) {
+        return 0;
+    }
     // write out data
-    for(size_type i = 0; i < line.data_size(); ++i) {
-        sz = ntf8_put32(line.data()[i], buffer,sizeof(buffer));
-        stream_.write(buffer,sz);
+    if(location_to_contig(loc) == 0) {
+        // when using relative positioning output reference depths relative to previous
+        for(size_type i = 0; i < num_libraries_; ++i) {
+            int64_t n = line.data()[i]-last_data_[i];
+            if(!varint::put_zig_zag(stream_.rdbuf(),n)) {
+                return 0;
+            }
+        }
+    } else {
+        // when using absolute positioning output reference depths normally
+        for(size_type i = 0; i < num_libraries_; ++i) {
+            if(!varint::put(stream_.rdbuf(),line.data()[i])) {
+                return 0;
+            }
+        }
+    }
+    // output all non-reference depths normally
+    for(size_type i = num_libraries_; i < line.data_size(); ++i) {
+        if(!varint::put(stream_.rdbuf(),line.data()[i])) {
+            return 0;
+        }
+    }
+    // Save reference depths
+    for(size_type i = 0; i < num_libraries_; ++i) {
+        last_data_[i] = line.data()[i];
     }
 
     return 1;
 }
 
-/* NTF8 Format
-NTF8 is a multi-byte, big-endian numeric format.
-The binary format consists of a prefix of 0 or more 1s,
-followed by a zero, followed by the value in big-endian format.
-The maximum amount of data that a single NTF8 number can hold
-is 64-bits. The number of leading 1s in the first byte tells
-the user how many extra bytes need to be read to decode
-the value.
-*/
-
-int ntf8_put32(int32_t x, char *out, size_t count) {
-    uint64_t n = x;
-    if(n <= 0x7F) {
-        // 0bbb bbbb
-        if(count < 1) {
-            return 0;
+constexpr int MAX_VARINT_SIZE = 10;
+std::pair<uint64_t,bool> dng::detail::varint::get_fallback(bytebuf_t *in, uint64_t result) {
+    assert(in != nullptr);
+    assert((result & 0x80) == 0x80);
+    assert((result & 0xFF) == result);
+    for(int i=1;i<MAX_VARINT_SIZE;i++) {
+        // remove the most recent MSB
+        result -= (0x80LL << (7*i-7));
+        // grab a character
+        bytebuf_t::int_type n = in->sbumpc();
+        // if you have reached the end of stream, return error
+        if(bytebuf_t::traits_type::eq_int_type(n, bytebuf_t::traits_type::eof())) {
+            return {0,false};
         }
-        *out = n;
-        return 1;
-    } else if(n <= 0x3FFF) {
-        // 10bb bbbb bbbb bbbb
-        if(count < 2) {
-            return 0;
+        // Convert back to a char and save in a 64-bit num.
+        uint64_t u = static_cast<uint8_t>(bytebuf_t::traits_type::to_char_type(n));
+        // shift these bits and add them to result
+        result += (u << (7*i));
+        // if MSB is not set, return the result
+        if(!(u & 0x80)) {
+            return {result,true};
         }
-    	uint16_t u = htobe16(n | 0x8000);
-    	memcpy(out, &u, 2);
-        return 2;
-    } else if(n <= 0x1FFFFF) {
-        // 110b bbbb bbbb bbbb bbbb bbbb
-        if(count < 3) {
-            return 0;
-        }
-        uint32_t u = htobe32((n | 0xC00000) << 8);
-    	memcpy(out, &u, 3);
-        return 3;
-    } else if(n <= 0x0FFFFFFF) {
-        // 1110 bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 4) {
-            return 0;
-        }
-        uint32_t u = htobe32(n | 0xE0000000);
-    	memcpy(out, &u, 4);
-        return 4;
-    } else {
-        // 1111 0000 bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 5) {
-            return 0;
-        }
-        *out = 0xF0;
-        uint32_t u = htobe32(n);
-        memcpy(out+1, &u, 4);
-        return 5;
     }
+    // if you have read more bytes than expected, return error
+    return {0,false};
 }
 
-/*
-int ntf8_put32u(uint32_t n, char *out, size_t count) {
-    if( n <= 0x7F) {
-        *out = n;
-        return 1;
+bool dng::detail::varint::put(bytebuf_t *out, uint64_t u) {
+    assert(out != nullptr);
+    while(u >= 0x80) {
+        uint8_t b = static_cast<uint8_t>(u | 0x80);
+        bytebuf_t::int_type n = out->sputc(b);
+        if(bytebuf_t::traits_type::eq_int_type(n, bytebuf_t::traits_type::eof())) {
+            return false;
+        }
+        u >>= 7;
     }
-    int b = (32-__builtin_clz(n))/7+1;
-    if(b == 5) {
-        *out = 0xF0;
-        memcpy(out+1, &n, b);
-    } else {
-        int m = (0 << (33-b));
-        n = m | (n << (32-8*b));
-        n = __builtin_bswap32(n);
-        memcpy(out, &n, b);
+    uint8_t b = static_cast<uint8_t>(u);
+    bytebuf_t::int_type n = out->sputc(b);
+    if(bytebuf_t::traits_type::eq_int_type(n, bytebuf_t::traits_type::eof())) {
+        return false;
     }
-    return b;
+    return true;
 }
-*/
-
-int ntf8_get32(const char *in, size_t count, int32_t *r) {
-	assert(r != nullptr);
-    if(count == 0) {
-        return 0;
-    }
-    uint8_t x = in[0];
-    if(x < 0x80) {
-        // 0bbb bbbb     
-        *r = x;
-        return 1;
-    } else if(x < 0xC0) {
-        // 10bb bbbb bbbb bbbb
-        if(count < 2) {
-            return 0;
-        }
-        uint16_t u = 0;
-        memcpy(&u,in,2);
-        *r = be16toh(u) & 0x3FFF;
-        return 2;
-    } else if(x < 0xE0) {
-        // 110b bbbb bbbb bbbb bbbb bbbb
-        if(count < 3) {
-            return 0;
-        }
-        uint32_t u = 0;
-        memcpy(&u,in,3);
-        *r = (be32toh(u) >> 8) & 0x1FFFFF;
-        return 3;
-    } else if(x < 0xF0) {
-        // 1110 bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 4) {
-            return 0;
-        }
-        uint32_t u = 0;
-        memcpy(&u,in,4);
-        *r = be32toh(u) & 0x0FFFFFFF;
-        return 4;
-    } else {
-        assert(x == 0xF0); // If this fails then we may be reading a 64-bit number
-        // 1111 0000 bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 5) {
-            return 0;
-        }        
-        uint32_t u = 0;
-        memcpy(&u,in+1,4);
-        *r = be32toh(u);
-        return 5;
-    }
-}
-
-int ntf8_put64(int64_t x, char *out, size_t count) {
-    uint64_t n = x;
-    if(n <= 0x7F) {
-        // 0bbb bbbb
-        if(count < 1) {
-            return 0;
-        }
-        *out = n;
-        return 1;
-    } else if(n <= 0x3FFF) {
-        // 10bb bbbb bbbb bbbb
-        if(count < 2) {
-            return 0;
-        }
-    	uint16_t u = htobe16(n | 0x8000);
-    	memcpy(out, &u, 2);
-        return 2;
-    } else if(n <= 0x1FFFFF) {
-        // 110b bbbb bbbb bbbb bbbb bbbb
-        if(count < 3) {
-            return 0;
-        }
-        uint32_t u = htobe32((n | 0xC00000) << 8);
-    	memcpy(out, &u, 3);
-        return 3;
-    } else if(n <= 0x0FFFFFFF) {
-        // 1110 bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 4) {
-            return 0;
-        }
-        uint32_t u = htobe32(n | 0xE0000000);
-    	memcpy(out, &u, 4);
-        return 4;
-    } else if(n <= 0x07FFFFFFFF) {
-        // 1111 0bbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 5) {
-            return 0;
-        }
-        uint64_t u = htobe64((n | 0xF000000000) << 24);
-        memcpy(out, &u, 5);
-        return 5;
-    } else if(n <= 0x03FFFFFFFFFF) {
-        // 1111 10bb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 6) {
-            return 0;
-        }
-        uint64_t u = htobe64((n | 0xF80000000000) << 16);
-        memcpy(out, &u, 6);
-        return 6;
-    } else if(n <= 0x01FFFFFFFFFFFF) {
-        // 1111 110b bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 7) {
-            return 0;
-        }
-        uint64_t u = htobe64((n | 0xFC000000000000) << 8);
-        memcpy(out, &u, 7);
-        return 7;
-    } else if(n <= 0x00FFFFFFFFFFFFFF) {
-        // 1111 1110 bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 8) {
-            return 0;
-        }
-        uint64_t u = htobe64( n | 0xFE00000000000000);
-        memcpy(out, &u, 8);
-        return 8;
-    } else {
-        // 1111 1111 bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 9) {
-            return 0;
-        }
-        *out = 0xFF;
-        uint64_t u = htobe64(n);
-        memcpy(out+1, &u, 8);
-        return 9;
-    }
-}
-
-int ntf8_get64(const char *in, size_t count, int64_t *r) {
-    assert(r != nullptr);
-    if(count == 0) {
-        return 0;
-    }
-    uint8_t x = in[0];
-    if(x < 0x80) {
-        // 0bbb bbbb
-        *r = x;
-        return 1;
-    } else if(x < 0xC0) {
-        // 10bb bbbb bbbb bbbb
-        if(count < 2) {
-            return 0;
-        }
-        uint16_t u = 0;
-        memcpy(&u,in,2);
-        *r = be16toh(u) & 0x3FFF;
-        return 2;
-    } else if(x < 0xE0) {
-        // 110b bbbb bbbb bbbb bbbb bbbb
-        if(count < 3) {
-            return 0;
-        }
-        uint32_t u = 0;
-        memcpy(&u,in,3);
-        *r = (be32toh(u) >> 8) & 0x1FFFFF;
-        return 3;
-    } else if(x < 0xF0) {
-        // 1110 bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 4) {
-            return 0;
-        }
-        uint32_t u = 0;
-        memcpy(&u,in,4);
-        *r = be32toh(u) & 0x0FFFFFFF;
-        return 4;
-    } else if(x < 0xF8) {
-        // 1111 0bbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 5) {
-            return 0;
-        }
-        uint64_t u = 0;
-        memcpy(&u,in,5);
-        *r = (be64toh(u) >> 24) & 0x07FFFFFFFF;
-        return 5;
-    } else if(x < 0xFC) {
-        // 1111 10bb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 6) {
-            return 0;
-        }
-        uint64_t u = 0;
-        memcpy(&u,in,6);
-        *r = (be64toh(u) >> 16) & 0x03FFFFFFFFFF;
-        return 6;
-    } else if(x < 0xFE) {
-        // 1111 110b bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 7) {
-            return 0;
-        }
-        uint64_t u = 0;
-        memcpy(&u,in,7);
-        *r = (be64toh(u) >> 8) & 0x01FFFFFFFFFFFF;
-        return 7;
-    } else if(x < 0xFF) {
-        // 1111 1110 bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 8) {
-            return 0;
-        }
-        uint64_t u = 0;
-        memcpy(&u,in,8);
-        *r = be64toh(u) & 0x00FFFFFFFFFFFFFF;
-        return 8;
-    } else {
-        // 1111 1111 bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb bbbb
-        if(count < 9) {
-            return 0;
-        }
-        uint64_t u = 0;
-        memcpy(&u,in+1,8);
-        *r = be64toh(u);
-        return 9;
-    }    
-}
-
