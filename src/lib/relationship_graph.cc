@@ -25,6 +25,8 @@
 #include <boost/graph/connected_components.hpp>
 #include <boost/range/algorithm/find.hpp>
 
+#include <boost/graph/graphml.hpp>
+
 #define DNG_GL_PREFIX "GL-"
 #define DNG_SM_PREFIX "SM-" // define also in newick.cc
 #define DNG_LB_PREFIX "LB-"
@@ -49,6 +51,40 @@ RULES FOR LINKING READ GROUPS TO PEOPLE.
 
 */
 
+namespace dng {
+namespace graph {
+
+std::ostream& operator<<(std::ostream& stream, const EdgeType edge_type) {
+
+    switch (edge_type) {
+        case EdgeType::Spousal:
+            stream << "Spousal";
+            break;
+        case EdgeType::Meiotic:
+            stream << "Meiotic";
+            break;
+        case EdgeType::Mitotic:
+            stream << "Mitotic";
+            break;
+        case EdgeType::Library:
+            stream << "Library";
+            break;
+        default:
+            stream << "INVALID_EDGE_TYPE";
+            break;
+    }
+
+    return stream;
+}
+
+std::istream& operator>>(std::istream& stream, const EdgeType& edge_type) {
+    return stream;
+}
+
+}
+}
+
+
 bool dng::RelationshipGraph::Construct(const io::Pedigree &pedigree,
         dng::ReadGroups &rgs, double mu, double mu_somatic, double mu_library) {
 
@@ -57,7 +93,7 @@ bool dng::RelationshipGraph::Construct(const io::Pedigree &pedigree,
     SetupFirstNodeIndex(pedigree);
 
     // Construct a graph of the pedigree and somatic information
-    Graph pedigree_graph(first_somatic_);
+    pedigree_graph = Graph(first_somatic_);
     PrintDebugEdges("========== VERISON 2 =========\ninit pedigree", pedigree_graph);
 
     auto edge_types = get(boost::edge_type, pedigree_graph);
@@ -69,6 +105,23 @@ bool dng::RelationshipGraph::Construct(const io::Pedigree &pedigree,
     AddLibrariesFromReadGroups(pedigree_graph, rgs);
 
     UpdateEdgeLengths(pedigree_graph, mu, mu_somatic, mu_library);
+
+    boost::dynamic_properties dp;
+    dp.property("group", boost::get(boost::vertex_group_t(),
+                                    pedigree_graph));
+    dp.property("label", boost::get(boost::vertex_label_t(),
+                                    pedigree_graph));
+    dp.property("family", boost::get(boost::edge_family_t(),
+                                     pedigree_graph));
+    dp.property("length", boost::get(boost::edge_length_t(),
+                                     pedigree_graph));
+    dp.property("type", boost::get(boost::edge_type_t(),
+                                   pedigree_graph));
+    ofstream graphml_stream;
+    graphml_stream.open("ped_graph.graphml");
+    boost::write_graphml(graphml_stream, pedigree_graph, dp);
+    graphml_stream.close();
+
     SimplifyPedigree(pedigree_graph);
 
     std::vector<size_t> node_ids(num_nodes_, -1);//num_nodes used twice for different contex
