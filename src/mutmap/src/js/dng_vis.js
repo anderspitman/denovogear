@@ -29,7 +29,6 @@
   var kinshipPedigreeData = layoutData;
   var graphData = processPedigree(kinshipPedigreeData);
   var vcfData = vcfParser.parseVCFText(dngOutputFileText);
-  var immutableVcfData = Immutable.fromJS(vcfData);
 
   // Create browser view
   var browserWrapper = d3.select('#browser_wrapper');
@@ -48,18 +47,21 @@
     .metadata(metadata);
   browser(browserWrapper);
 
+  var pedView = new pedigreeView.PedigreeView(graphData,
+    d3.select("#chart_wrapper"));
+
   // Create pedigree view
-  dngOverlay(vcfData.header, vcfData.records[2]);
-  pedigreeView.render(graphData, vcfData);
+  dngOverlay(vcfData.header, vcfData.records[0]);
+  pedView.update();
 
   window.addEventListener("resize", function() {
-    pedigreeView.render(graphData, vcfData);
+    pedView.update();
   });
 
   store.subscribe(function() {
     var state = store.getState();
     dngOverlay(vcfData.header, vcfData.records[state.mutationRecordIndex]);
-    pedigreeView.render(graphData, vcfData);
+    pedView.update(graphData, vcfData);
   });
 
   function dngOverlay(header, record) {

@@ -10,22 +10,20 @@ var pedigreeView = (function($, d3, store) {
   var format = d3.format(",.6e");
 
   store.subscribe(stateChanged);
- 
 
-  function render(graphData, vcfData) {
+  var PedigreeView = function(graphData, parentElement) {
+    this._graphData = graphData;
+    this._parentElement = parentElement;
+    this._create();
+  };
 
-    var nodes = graphData.nodes;
-    var links = graphData.links;
+  PedigreeView.prototype._create = function() {
 
-    d3.select(".pedigreeSvg").remove();
-
-    var zoom = d3.zoom()
-      .on("zoom", zoomed);
-
-    var chartWrapper = d3.select("#chart_wrapper");
-
-    var svg = chartWrapper.append("svg")
+    this._parentElement.append("svg")
         .attr("class", "pedigreeSvg");
+
+    var svg = this._parentElement.select(".pedigreeSvg");
+
     var width = $("svg").parent().width();
     var height = $("svg").parent().height();
 
@@ -35,8 +33,17 @@ var pedigreeView = (function($, d3, store) {
         .attr("width", width)
         .attr("height", height);
 
-    var container = svg.call(zoom)
-      .append("g");
+    var zoom = d3.zoom()
+      .on("zoom", zoomed.bind(this));
+    this._container = svg.call(zoom)
+      .append("g")
+        .attr("class", "container");
+
+    this._links_container = this._container.append("g")
+        .attr("class", "links-container");
+
+    this._nodes_container = this._container.append("g")
+        .attr("class", "nodes-container");
 
     d3.select("#sample_tree_toggle").on("click", function() {
       var action = {
@@ -45,15 +52,34 @@ var pedigreeView = (function($, d3, store) {
       store.dispatch(action);
     });
 
-    var visualLinks = container
+    function zoomed() {
+      this._container.attr("transform", d3.event.transform);
+    }
+  };
+ 
+
+  PedigreeView.prototype.update = function() {
+
+    var nodes = this._graphData.nodes;
+
+    this._updateLinks();
+    this._updateNodes();
+  };
+
+  PedigreeView.prototype._updateLinks = function() {
+
+    var links = this._graphData.links;
+
+    var visualLinksUpdate = this._links_container.selectAll(".link")
+        .data(links);
+
+    var visualLinksEnter = visualLinksUpdate.enter()
       .append("g")
-        .attr("class", "links")
-      .selectAll("line")
-        .data(links)
-      .enter().append("g")
         .attr("class", "link");
 
-    visualLinks.append("path")
+    var visualLinksEnterUpdate = visualLinksEnter.merge(visualLinksUpdate);
+
+    visualLinksEnter.append("path")
         .attr("d", function(d) {
           if (d.type == "child" || d.type == "spouse") {
             return "M" + d.source.x + "," + d.source.y +
@@ -70,6 +96,32 @@ var pedigreeView = (function($, d3, store) {
           }
         })
         .attr("fill", "transparent")
+        .attr("stroke-dasharray", function(d) {
+          if (d.type == "duplicate") {
+            return "5, 5";
+          }
+        })
+        .attr("x1", function(d) { return d.source.x; })
+        .attr("y1", function(d) { return d.source.y; })
+        .attr("x2", function(d) { return d.target.x; })
+        .attr("y2", function(d) { return d.target.y; });
+
+    visualLinksEnter.append("text")
+      .attr("dx", function(d) {
+        return utils.halfwayBetween(d.source.x, d.target.x) - 45;
+      })
+      .attr("dy", function(d) {
+        return utils.halfwayBetween(d.source.y, d.target.y);
+      });
+
+    visualLinksEnterUpdate.select("text")
+      .text(function(d) {
+        if (linkHasData(d)) {
+          return d.dataLink.data.mutation;
+        }
+      });
+
+    visualLinksEnterUpdate.select("path")
         .attr("stroke-width", function(d) {
           if (linkHasData(d)) {
             return 5;
@@ -82,46 +134,24 @@ var pedigreeView = (function($, d3, store) {
           }
 
           return "#999";
-        })
-        .attr("stroke-dasharray", function(d) {
-          if (d.type == "duplicate") {
-            return "5, 5";
-          }
-        })
-        .attr("x1", function(d) { return d.source.x; })
-        .attr("y1", function(d) { return d.source.y; })
-        .attr("x2", function(d) { return d.target.x; })
-        .attr("y2", function(d) { return d.target.y; });
-
-    visualLinks.append("text")
-      .attr("dx", function(d) {
-        return utils.halfwayBetween(d.source.x, d.target.x) - 45;
-      })
-      .attr("dy", function(d) {
-        return utils.halfwayBetween(d.source.y, d.target.y);
-      })
-      .text(function(d) {
-        if (linkHasData(d)) {
-          return d.dataLink.data.mutation;
-        }
-      });
+        });
 
     function linkHasData(d) {
       return d.dataLink !== undefined && d.dataLink.data !== undefined;
     }
+  };
 
-    var visualNodes = container
-      .append("g")
-        .attr("class", "nodes")
-      .selectAll(".node")
-      .data(nodes)
-      .enter()
+  PedigreeView.prototype._updateNodes = function() {
+    var visualNodesUpdate = this._nodes_container.selectAll(".node")
+        .data(this._graphData.nodes);
+
+    var visualNodesEnter = visualNodesUpdate.enter()
       .append("g")
         .attr("class", "node");
 
     var tree = sampleTreeView.createSampleTree();
 
-    visualNodes.selectAll(".yolo")
+    visualNodesEnter.selectAll(".yolo")
         .data(function(d) {
           if (d.type == "person") {
             return [d];
@@ -137,7 +167,7 @@ var pedigreeView = (function($, d3, store) {
         }
       });
 
-    var nodeSymbols = visualNodes.append("path")
+    var nodeSymbols = visualNodesEnter.append("path")
       .attr("class", "nodeSymbol")
       .attr("d", d3.symbol()
         .type(function(d) {
@@ -165,22 +195,21 @@ var pedigreeView = (function($, d3, store) {
       })
       .on("click", nodeClicked);
 
-    visualNodes.append("text")
+    visualNodesEnter.append("text")
       .attr("dx", 15)
       .attr("dy", 15)
       .text(function(d) { 
         if (d.type !== "marriage") {
           return d.dataNode.id;
         }
-      });
+      })
+      .style("pointer-events", "none")
+      .style("font", "10px sans-serif");
 
-    visualNodes.attr("transform", function(d) {
+    visualNodesEnter.attr("transform", function(d) {
       return svgTranslateString(d.x, d.y);
     });
-    function zoomed() {
-      container.attr("transform", d3.event.transform);
-    }
-  }
+  };
 
   function nodeClicked(d) {
     if (d.type !== "marriage") {
@@ -274,6 +303,6 @@ var pedigreeView = (function($, d3, store) {
     }
   }
 
-  return { render: render };
+  return { PedigreeView: PedigreeView };
 
 }($, d3, store));
